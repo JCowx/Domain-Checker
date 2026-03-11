@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Domain Checker — Powered by Spaceship</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #00ff9d;
+      --green-dim: #00cc7a;
+      --red: #ff4444;
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --text: #e8e8e8;
+      --muted: #555;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      border-bottom: 1px solid var(--border);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      flex-shrink: 0;
+    }
+
+    header span {
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    main {
+      max-width: 700px;
+      width: 100%;
+      padding: 80px 24px 40px;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 5px;
+      color: var(--green);
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 48px;
+      letter-spacing: -2px;
+      font-family: Georgia, serif;
+      color: #fff;
+    }
+
+    h1 span {
+      color: transparent;
+      -webkit-text-stroke: 2px var(--green);
+    }
+
+    .search-wrap {
+      display: flex;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #2a2a3e;
+      box-shadow: 0 0 40px rgba(0,255,157,0.05);
+      transition: border-color 0.2s;
+    }
+
+    .search-wrap:focus-within {
+      border-color: #3a3a5e;
+      box-shadow: 0 0 40px rgba(0,255,157,0.12);
+    }
+
+    #domainInput {
+      flex: 1;
+      background: var(--surface);
+      border: none;
+      outline: none;
+      padding: 18px 24px;
+      font-size: 18px;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+    }
+
+    #domainInput::placeholder { color: #333; }
+
+    #searchBtn {
+      background: var(--green);
+      color: var(--bg);
+      border: none;
+      padding: 18px 32px;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      transition: background 0.2s;
+      min-width: 120px;
+    }
+
+    #searchBtn:hover:not(:disabled) { background: #00e88d; }
+    #searchBtn:disabled { background: #1a2e24; color: #2a4a38; cursor: not-allowed; }
+
+    .error {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: #1e0f0f;
+      border: 1px solid #4a1a1a;
+      border-radius: 4px;
+      color: #ff6b6b;
+      font-size: 13px;
+      display: none;
+    }
+
+    .config-notice {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: #1a1500;
+      border: 1px solid #3a3000;
+      border-radius: 4px;
+      color: #ffcc00;
+      font-size: 12px;
+      line-height: 1.6;
+      display: none;
+    }
+
+    #results {
+      max-width: 700px;
+      width: 100%;
+      padding: 0 24px 80px;
+      display: none;
+    }
+
+    .stats {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 32px;
+      padding: 16px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-num { font-size: 28px; font-weight: 900; }
+    .stat-num.green { color: var(--green); }
+    .stat-num.red { color: var(--red); }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+
+    .stat-divider {
+      border-left: 1px solid var(--border);
+      padding-left: 24px;
+      display: flex;
+      align-items: center;
+    }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      margin-top: 32px;
+    }
+
+    .domain-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .domain-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      border-radius: 4px;
+      transition: border-color 0.2s;
+    }
+
+    .domain-row.available { background: #0d1f17; border: 1px solid #1a3328; }
+    .domain-row.available:hover { border-color: #2a5040; }
+    .domain-row.taken { background: #130e0e; border: 1px solid #1e1212; opacity: 0.55; }
+
+    .domain-name { font-size: 16px; letter-spacing: 0.5px; }
+    .domain-row.taken .domain-name { color: #888; text-decoration: line-through; }
+    .domain-row.available .domain-name { color: #fff; }
+
+    .domain-right { display: flex; align-items: center; gap: 16px; }
+    .price { font-size: 13px; color: var(--green-dim); }
+
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.red { background: var(--red); }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid transparent;
+      border-top-color: var(--bg);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.7; }
+    }
+
+    .skeleton { height: 48px; border-radius: 4px; background: #1a1a2e; animation: pulse 1.4s ease-in-out infinite; }
+
+    footer { margin-top: auto; padding: 24px; font-size: 11px; color: #333; letter-spacing: 2px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="dot"></div>
+    <span>Spaceship — Domain Availability</span>
+  </header>
+
+  <main>
+    <div class="eyebrow">Find your domain</div>
+    <h1>Is your domain<br><span>available?</span></h1>
+
+    <div class="search-wrap">
+      <input id="domainInput" type="text" placeholder="yourname" autocomplete="off" spellcheck="false" />
+      <button id="searchBtn" disabled>Search</button>
+    </div>
+
+    <div class="error" id="errorBox"></div>
+    <div class="config-notice" id="configNotice">
+      ⚠ Worker URL not configured. Open <code>index.html</code> and replace <code>YOUR_WORKER_URL_HERE</code> with your Cloudflare Worker URL.
+    </div>
+  </main>
+
+  <section id="results">
+    <div class="stats">
+      <div style="display:flex;align-items:center">
+        <span class="stat-num green" id="countAvailable">0</span>
+        <span class="stat-label">Available</span>
+      </div>
+      <div class="stat-divider">
+        <span class="stat-num red" id="countTaken">0</span>
+        <span class="stat-label">Taken</span>
+      </div>
+    </div>
+    <div id="availableSection" style="display:none">
+      <div class="section-label">Available</div>
+      <div class="domain-list" id="availableList"></div>
+    </div>
+    <div id="takenSection" style="display:none">
+      <div class="section-label">Taken</div>
+      <div class="domain-list" id="takenList"></div>
+    </div>
+  </section>
+
+  <footer>Powered by Spaceship API</footer>
+
+  <script>
+    // ============================================================
+    //  Paste your Cloudflare Worker URL here after deploying
+    //  e.g. "https://domain-proxy.yourname.workers.dev"
+    // ============================================================
+    const WORKER_URL = "https://domain.inbox-github.workers.dev/";
+    // ============================================================
+
+    const TLDS = ['.com', '.net', '.org', '.io', '.co', '.dev', '.app', '.ai', '.xyz', '.me'];
+
+    const input    = document.getElementById('domainInput');
+    const btn      = document.getElementById('searchBtn');
+    const errorBox = document.getElementById('errorBox');
+    const resultsEl = document.getElementById('results');
+    const notice   = document.getElementById('configNotice');
+
+    if (WORKER_URL === "YOUR_WORKER_URL_HERE") notice.style.display = 'block';
+
+    input.addEventListener('input', () => { btn.disabled = !input.value.trim(); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !btn.disabled) checkDomains(); });
+    btn.addEventListener('click', checkDomains);
+
+    function sanitize(str) {
+      return str.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+
+    function showSkeletons() {
+      resultsEl.style.display = 'block';
+      document.getElementById('availableSection').style.display = 'none';
+      document.getElementById('takenSection').style.display = 'none';
+      document.getElementById('countAvailable').textContent = '—';
+      document.getElementById('countTaken').textContent = '—';
+      const list = document.getElementById('availableList');
+      list.innerHTML = TLDS.map(() => `<div class="skeleton"></div>`).join('');
+      document.getElementById('availableSection').style.display = 'block';
+    }
+
+    async function checkDomains() {
+      if (WORKER_URL === "YOUR_WORKER_URL_HERE") { notice.style.display = 'block'; return; }
+
+      const base = sanitize(input.value);
+      if (!base) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      errorBox.style.display = 'none';
+      notice.style.display = 'none';
+      showSkeletons();
+
+      try {
+        const res = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domains: TLDS.map(tld => `${base}${tld}`) }),
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        console.log('API response:', JSON.stringify(data));
+        // Handle various response shapes from Spaceship
+        let items = [];
+        if (Array.isArray(data)) items = data;
+        else if (Array.isArray(data.items)) items = data.items;
+        else if (Array.isArray(data.results)) items = data.results;
+        else if (Array.isArray(data.domains)) items = data.domains;
+        else {
+          // Last resort: look for any array in the response
+          const found = Object.values(data).find(v => Array.isArray(v));
+          if (found) items = found;
+        }
+        renderResults(items);
+      } catch (err) {
+        errorBox.textContent = '✗ ' + (err.message || 'Failed to fetch. Check your Worker URL.');
+        errorBox.style.display = 'block';
+        resultsEl.style.display = 'none';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Search';
+      }
+    }
+
+    function checkAvailable(r) {
+      // Log every item so we can see the real field names
+      console.log('Domain item:', JSON.stringify(r));
+      if (typeof r.available === 'boolean') return r.available;
+      if (typeof r.isAvailable === 'boolean') return r.isAvailable;
+      if (typeof r.status === 'string') return r.status.toLowerCase() === 'available';
+      if (typeof r.available === 'string') return r.available.toLowerCase() === 'true';
+      return false;
+    }
+
+    function renderResults(items) {
+      const available = items.filter(r => checkAvailable(r));
+      const taken     = items.filter(r => !checkAvailable(r));
+
+      document.getElementById('countAvailable').textContent = available.length;
+      document.getElementById('countTaken').textContent     = taken.length;
+
+      const availList = document.getElementById('availableList');
+      const availSection = document.getElementById('availableSection');
+      availList.innerHTML = '';
+      if (available.length) { available.forEach(r => availList.appendChild(createRow(r, true))); availSection.style.display = 'block'; }
+      else availSection.style.display = 'none';
+
+      const takenList = document.getElementById('takenList');
+      const takenSection = document.getElementById('takenSection');
+      takenList.innerHTML = '';
+      if (taken.length) { taken.forEach(r => takenList.appendChild(createRow(r, false))); takenSection.style.display = 'block'; }
+      else takenSection.style.display = 'none';
+    }
+
+    function createRow(r, isAvailable) {
+      const row = document.createElement('div');
+      row.className = `domain-row ${isAvailable ? 'available' : 'taken'}`;
+
+      const name = document.createElement('span');
+      name.className = 'domain-name';
+      name.textContent = r.domain;
+
+      const right = document.createElement('div');
+      right.className = 'domain-right';
+
+      if (isAvailable && r.price != null) {
+        const price = document.createElement('span');
+        price.className = 'price';
+        price.textContent = `$${(r.price / 100).toFixed(2)}/yr`;
+        right.appendChild(price);
+      }
+
+      const dot = document.createElement('div');
+      dot.className = `status-dot ${isAvailable ? 'green' : 'red'}`;
+      right.appendChild(dot);
+
+      row.appendChild(name);
+      row.appendChild(right);
+      return row;
+    }
+  </script>
+</body>
+</html>
